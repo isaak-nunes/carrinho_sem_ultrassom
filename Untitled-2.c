@@ -10,8 +10,8 @@
 #define INPUT_PIN       1         // PTE20
 #define INPUT_PORT2     DT_NODELABEL(gpioa)  // Porta E = GPIO_4 no seu .dts
 #define INPUT_PIN2      2         // PTE20
-#define max 750
-#define min 0
+#define max 500
+#define min 200
 #define start 1000
 
 #define TPM_MODULE 1000         // Define a frequência do PWM fpwm = (TPM_CLK / (TPM_MODULE * PS))
@@ -35,13 +35,16 @@ void main (void)
         pwm_tpm_Ch_Init(TPM2, 1, TPM_PWM_H, GPIOB, 19);
         pwm_tpm_Ch_Init(TPM0, 1, TPM_PWM_H, GPIOD, 1);
 
-        pwm_tpm_Ch_Init(TPM0, 2, TPM_PWM_H, GPIOD, 2);  //motor pra frente
-        pwm_tpm_Ch_Init(TPM0, 3, TPM_PWM_H, GPIOD, 3);  //motor pra frente
+        pwm_tpm_Ch_Init(TPM0, 2, TPM_PWM_H, GPIOD, 2);
+        pwm_tpm_Ch_Init(TPM0, 3, TPM_PWM_H, GPIOD, 3);
 
-        pwm_tpm_Ch_Init(TPM0, 0, TPM_PWM_H, GPIOD, 0);  //motor pra trás
-        pwm_tpm_Ch_Init(TPM0, 5, TPM_PWM_H, GPIOD, 5);  //motor pra trás
+        pwm_tpm_CnV(TPM0, 1, 0);
+        pwm_tpm_CnV(TPM0, 2, start);
+        pwm_tpm_CnV(TPM0, 3, start);
+        k_msleep(500);
 
     while (1) {
+        pwm_tpm_CnV(TPM0, 1, 1000);
         val = gpio_pin_get(input_dev, INPUT_PIN);
         val2 = gpio_pin_get(input_dev2, INPUT_PIN2);
 
@@ -50,14 +53,12 @@ void main (void)
         {
             pwm_tpm_CnV(TPM2, 0, 0);        //led
             pwm_tpm_CnV(TPM0, 2, max);
-            pwm_tpm_CnV(TPM0, 0, min);
-
         }
         else
         {
+            pwm_tpm_CnV(TPM0, 1, 1000);
             pwm_tpm_CnV(TPM2, 0, 1000);
             pwm_tpm_CnV(TPM0, 2, min);
-            pwm_tpm_CnV(TPM0, 0, max);
         }
     }
         
@@ -66,13 +67,11 @@ void main (void)
         {
             pwm_tpm_CnV(TPM2, 1, 0);        //led
             pwm_tpm_CnV(TPM0, 3, max);
-            pwm_tpm_CnV(TPM0, 5, min);
         }
         else
         {
             pwm_tpm_CnV(TPM2, 1, 1000);
             pwm_tpm_CnV(TPM0, 3, min);
-            pwm_tpm_CnV(TPM0, 5, max);
         }
     }
     k_msleep(30);
