@@ -123,26 +123,16 @@ int main(void) {
 
             case AMARELO:
             k_msleep(wait);
-        while(val + val2 == 0)
-        {
-        val = gpio_pin_get(input_dev, INPUT_PIN);
-        val2 = gpio_pin_get(input_dev2, INPUT_PIN2);
-        }
-            current_state = VERDE;
+            //current_state = VERDE;
             break;
 
             case VERDE:
             k_msleep(wait);
-            val = gpio_pin_get(input_dev, INPUT_PIN);
-            val2 = gpio_pin_get(input_dev2, INPUT_PIN2);
             current_state = VERMELHO;
             break;
 
             case VERMELHO:
             k_msleep(wait);
-            while(val2 != 1){
-             val2 = gpio_pin_get(input_dev2, INPUT_PIN2);
-            }
             current_state = AMARELO;
             break;
         }
