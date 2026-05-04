@@ -1,0 +1,211 @@
+#include <zephyr/kernel.h>             // Funções básicas do Zephyr (ex: k_msleep, k_thread, etc.)
+#include <zephyr/device.h>             // API para obter e utilizar dispositivos do sistema
+#include <zephyr/drivers/gpio.h>       // API para controle de pinos de entrada/saída (GPIO)
+#include <pwm_z42.h>                // Biblioteca personalizada com funções de controle do TPM (Timer/PWM Module)
+#include <sensor-ultrassonico.h>
+#include <math.h>
+
+#define TPM_MODULE 2000         // Define a frequência do PWM fpwm = (TPM_CLK / (TPM_MODULE * PS)
+
+#define INPUT_PORT2 DT_NODELABEL(gpiob)
+#define pino_pronto 16
+#define max TPM_MODULE * 8 / 10
+#define min 2 * TPM_MODULE - 2 * max
+
+#define INPUT_PORT      DT_NODELABEL(gpioa)  // Porta A = GPIO_0 no seu .dts
+#define INPUT_PIN       1         // PTA1
+#define INPUT_PIN2      2         // PTA2
+
+void Led_rgb (int LED_VERMELHO, int LED_VERDE, int LED_AZUL){
+    //multiplo pra facilitar o processo pra ficar bonito
+    int m = floor(TPM_MODULE/256);
+        pwm_tpm_CnV(TPM2, 0, TPM_MODULE - LED_VERMELHO * m);
+        pwm_tpm_CnV(TPM2, 1, TPM_MODULE - LED_VERDE * m);
+        pwm_tpm_CnV(TPM0, 1, TPM_MODULE - LED_AZUL * m);
+}
+
+void motor_f(int n, int m, int v)             //função pro motor vermelho ir pra frente
+{
+        pwm_tpm_CnV(TPM0, n, max + v);
+        pwm_tpm_CnV(TPM0, m, max);
+}
+
+void motor_t(int n, int m)             //função pro motor vermelho ir pra trás
+{
+        pwm_tpm_CnV(TPM0, n, 0);
+        pwm_tpm_CnV(TPM0, m, min);
+}
+
+void quieto(void){
+        pwm_tpm_CnV(TPM0, 3, 0);
+        pwm_tpm_CnV(TPM0, 4, TPM_MODULE);
+        pwm_tpm_CnV(TPM0, 3, 0);
+        pwm_tpm_CnV(TPM0, 4, TPM_MODULE);
+}
+
+enum estado_sensor {
+    INFRA_VERMELHO,
+    ULTRASSOM,
+    QUIETO
+};
+
+int sensor_infra(void){
+    const struct device *input_dev;
+    input_dev = DEVICE_DT_GET(INPUT_PORT);
+    int infra_vrm, gus, infra_vrd, tavo;
+    
+        //habilita o pino como input, dos sensores infravermelho e do ultrassom
+        infra_vrm = gpio_pin_configure(input_dev, INPUT_PIN, GPIO_INPUT);
+        infra_vrd = gpio_pin_configure(input_dev, INPUT_PIN2, GPIO_INPUT);
+    
+        gus = gpio_pin_get(input_dev, INPUT_PIN);
+        tavo = gpio_pin_get(input_dev, INPUT_PIN2);
+        if(gus == 0 && tavo == 1){
+            printk("direita");
+            return 1;
+            
+        }
+        else if(gus == 1 && tavo == 0){
+            printk("esquerda");
+            return 2;
+        }
+        else if(gus == tavo){
+            printk("torto");
+            return 3;
+        }
+}
+
+void tipo_sensor(enum estado_sensor state) {
+    switch (state) {
+        
+         case INFRA_VERMELHO:
+         while(1){
+
+        //vermelho, vulgo direita
+        if (sensor_infra() == 1)
+        {
+            pwm_tpm_CnV(TPM2, 0, 0);        //led
+
+            mtr_Vrd_f();
+
+        }
+        else
+        {
+            pwm_tpm_CnV(TPM2, 0, TPM_MODULE);
+
+            /*esse if existe para que caso ambas
+            as variaveis resultem em um, o carrinho
+            contiue a seguir em frente*/
+            if (tavo != 1)
+            {
+                mtr_Vrd_t();
+            }
+            else
+            {
+                 mtr_Vrd_f();
+            }
+        }
+    
+        //verde, vulgo esquerda
+        if (sensor_infra() == 2)
+        {
+            pwm_tpm_CnV(TPM2, 1, 0);        //led
+
+            mtr_Vrm_f();
+        }
+        else
+        {
+            pwm_tpm_CnV(TPM2, 1, TPM_MODULE);
+            
+            /*esse if existe para que caso ambas
+            as variaveis resultem em um, o carrinho
+            contiue a seguir em frente*/
+            if (gus != 1)
+            {
+                mtr_Vrm_t();
+            }
+            else{
+                 mtr_Vrm_f();
+            }
+        }
+    }
+
+    k_msleep(20);
+            break;
+
+            case ULTRASSOM:
+        sensorUltrassonicoInit();
+        float aux = distancia;
+        while(floor(aux) != 20)
+        {
+            aux = (3 * aux + distancia)/4;
+            if(aux > 20){
+                motor_f(3,4,0);
+                motor_f(2,0,70);
+                printk("MAIOR QUE VINTE:%.2f\n",aux);
+            }
+            else if (aux < 20)
+            {
+                motor_t(2,0);
+                motor_t(3,4);
+                printk("MENOR QUE VINTE%.1f\n",aux);
+            }
+            
+        }
+            break;
+
+            case QUIETO:
+            Led_rgb(255,0,255);
+            break;
+    }
+}
+
+int main(void) {
+        //iniciação do clock da porta (eu acho)
+    pwm_tpm_Init(TPM0, TPM_PLLFLL, TPM_MODULE, TPM_CLK, PS_128, EDGE_PWM);
+    pwm_tpm_Init(TPM2, TPM_PLLFLL, TPM_MODULE, TPM_CLK, PS_128, EDGE_PWM);
+
+    pwm_tpm_Ch_Init(TPM2, 0, TPM_PWM_H, GPIOB, 18); //led vermelho
+    pwm_tpm_Ch_Init(TPM2, 1, TPM_PWM_H, GPIOB, 19); //led verde
+
+    //motores pra frente
+    pwm_tpm_Ch_Init(TPM0, 2, TPM_PWM_H, GPIOD, 2);
+    pwm_tpm_Ch_Init(TPM0, 3, TPM_PWM_H, GPIOD, 3); 
+
+    //motores pra trás
+    pwm_tpm_Ch_Init(TPM0, 0, TPM_PWM_L, GPIOD, 0);  
+    pwm_tpm_Ch_Init(TPM0, 4, TPM_PWM_L, GPIOD, 4); 
+
+    //estado inical
+    enum estado_sensor current_state = INFRA_VERMELHO; // Initial state
+    float aux;
+    while (1)
+    {
+        tipo_sensor(current_state);
+        switch (current_state)
+        {
+        case INFRA_VERMELHO:
+        aux= distancia;
+        while(1)
+        {
+        printk("infra ativo");
+        aux = (aux + distancia)/2;
+        }
+        current_state = ULTRASSOM;
+            break;
+        
+        case ULTRASSOM:
+        while(floor(aux) != 20){
+        aux = (aux + distancia)/2;
+        }
+        current_state = QUIETO;
+            break;
+
+        case QUIETO:
+        Led_rgb(255,255,255);
+        quieto();
+        while (1){}
+            break;
+        }
+    }
+}

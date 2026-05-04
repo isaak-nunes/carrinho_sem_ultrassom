@@ -42,7 +42,7 @@ void cor_led(enum estado_led state) {
     //Iniciação das pinos de led
     pwm_tpm_Ch_Init(TPM2, 0, TPM_PWM_H, GPIOB, 18);     // Led vermelho
     pwm_tpm_Ch_Init(TPM2, 1, TPM_PWM_H, GPIOB, 19);     // Led verde
-    pwm_tpm_Ch_Init(TPM0, 1, TPM_PWM_H, GPIOD, 1);      // Led azul
+    pwm_tpm_Ch_Init(TPM0, 1, TPM_PWM_H, GPIOD, 1);      // Led azul'
 
     //Iniciação dos pinos de uso geral
     pwm_tpm_Ch_Init(TPM0, 2, TPM_PWM_H, GPIOD, 2);      // porta de uso geral

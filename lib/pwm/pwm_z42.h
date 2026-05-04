@@ -40,6 +40,12 @@
 #define TPM_OC_SET 		TPM_CnSC_MSA_MASK|TPM_CnSC_ELSA_MASK|TPM_CnSC_ELSB_MASK
 #define TPM_OC_OUTL 	TPM_CnSC_MSB_MASK|TPM_CnSC_MSA_MASK|TPM_CnSC_ELSB_MASK
 #define TPM_OC_OUTH 	TPM_CnSC_MSB_MASK|TPM_CnSC_MSA_MASK|TPM_CnSC_ELSA_MASK
+
+// ==== Input Capture Mode (TPM) ====
+#define TPM_INPUT_CAPTURE_RISING  (TPM_CnSC_ELSA_MASK)                            // Captura borda de subida
+#define TPM_INPUT_CAPTURE_FALLING (TPM_CnSC_ELSB_MASK)                            // Captura borda de descida
+#define TPM_INPUT_CAPTURE_BOTH    (TPM_CnSC_ELSA_MASK | TPM_CnSC_ELSB_MASK)       // Captura ambas
+#define TPM_CHANNEL_INTERRUPT     (TPM_CnSC_CHIE_MASK)                            // Habilita interrupção
  
 #define TPM_PWM_H 		TPM_CnSC_MSB_MASK|TPM_CnSC_ELSB_MASK
 #define TPM_PWM_L 		TPM_CnSC_MSB_MASK|TPM_CnSC_ELSA_MASK
