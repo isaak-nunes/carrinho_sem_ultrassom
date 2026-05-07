@@ -46,6 +46,6 @@ void sensorUltrassonicoInit(void) {
 
     // Configura TPM1_CH0 como input capture na borda de subida
     pwm_tpm_Ch_Init(TPM1, 0, TPM_INPUT_CAPTURE_BOTH | TPM_CHANNEL_INTERRUPT, GPIOB, 0);
-    pwm_tpm_Ch_Init(TPM2, 0, TPM_PWM_H, GPIOB, 2);
-    pwm_tpm_CnV(TPM2, 0, TPM_MOD);
+    pwm_tpm_Ch_Init(TPM1, 1, TPM_PWM_H, GPIOB, 1);
+    pwm_tpm_CnV(TPM1, 1, TPM_MOD);
 }
