@@ -24,57 +24,50 @@ versão do carrinho que:
 
 #define tpm 1000                    // Define a frequência do PWM fpwm = (TPM_CLK / (tpm * PS))
 
-#define frntG   900
-#define trasG   200
-#define frntS   600
-#define trasS   400
-
-#define paro 0                     // quantos cm pa para
-
-
 volatile uint8_t err = 0;   // variavel relacionada a possiveis falhas do ultrassom do carrinho
 volatile uint8_t gus= 0;    // variavel relacionada ao sensor direito do carrinho  
 volatile uint8_t tavo= 0;   // variavel relacionada ao sensor esquerdo do carrinho
 volatile uint8_t reh= 0;    // variavel relacionada ao sensor central do carrinho
 
 // variaveis para o controle PID
-volatile uint8_t Kp= 35;    // peso da proporção
+volatile uint8_t Kp= 10;    // peso da proporção
 volatile uint8_t Ki= 0;    // peso da integral
-volatile uint8_t Kd= 35;    // peso da derivada
+volatile uint8_t Kd= 0;    // peso da derivada
 
 volatile uint8_t P = 0, I = 0, D = 0, PID = 0;    // -\(^-^)/-
 
-void mtr_Vrd_f(int v){       //função pro motor verde (esquerdo) ir pra frente      
-    pwm_tpm_CnV(TPM0, 2, v);     //Quanto MAIOR, mais rápido
-    pwm_tpm_CnV(TPM0, 0, tpm);          //Quanto MAIOR, menos rápido
-}
+volatile uint8_t Spl= 0, SpR = 0;    // peso da derivada
 
-void mtr_Vrd_t(int d)        //função pro motor verde (esquerdo) ir pra trás        
-{
-    pwm_tpm_CnV(TPM0, 2, 0);
-    pwm_tpm_CnV(TPM0, 0, d);
-}
+volatile uint8_t erro = 0, erro_anterior = 0;    // peso da derivada
 
-void mtr_Vrm_f(int v)       //função pro motor vermelho (direito) ir pra frente   
-{
-    pwm_tpm_CnV(TPM0, 3, v);      //Quanto MAIOR, mais rápido
-    pwm_tpm_CnV(TPM0, 4, tpm);      //Quanto MAIOR, menos rápido
-}
-
-void mtr_Vrm_t(int d)        //função pro motor vermelho (direito) ir pra trás     
-{
-    pwm_tpm_CnV(TPM0, 3, 0);
-    pwm_tpm_CnV(TPM0, 4, d);
-}
-
-void quierio(int e)          // quierio                                  
-{
-    if (e == 0){
-    pwm_tpm_CnV(TPM0, 2, 0);
-    pwm_tpm_CnV(TPM0, 0, tpm);
-    pwm_tpm_CnV(TPM0, 3, 0);
-    pwm_tpm_CnV(TPM0, 4, tpm);
+int calcula_pid(void){
+    if(erro == 0){
+        I = 0;
     }
+    P = erro;
+    I += erro;
+
+    if (I > 255){
+        I = 255;
+    }
+    else if (I < -255){
+        I = -255;
+    }
+
+    D = erro - erro_anterior;
+    PID = (Kp * P) + (Ki * I) + (Kd * D);
+    erro_anterior = erro;
+}
+
+void motor_dir(int v){       //função pro motor direito    
+    pwm_tpm_CnV(TPM0, 2, v);     
+    pwm_tpm_CnV(TPM0, 0, tpm);   
+}
+
+void motor_esq(int v)        //função pro motor esquerdo   
+{
+    pwm_tpm_CnV(TPM0, 3, v);
+    pwm_tpm_CnV(TPM0, 4, tpm);
 }
 
 void setup(void) { //pois quanto menor o main, melhor!
@@ -97,6 +90,17 @@ void setup(void) { //pois quanto menor o main, melhor!
         pwm_tpm_Ch_Init(TPM0, 4, TPM_PWM_L, GPIOD, 4);  //lado esquerdo (verde)
 }
 
+int calcula_erro(int Sd, int Sm, int Se){
+    if(Sd == Sm && Sd == Se && Sm == Se){ erro = 0;}
+    else if(Sd == 1 && Sm == 0 && Se == 1){ erro = 0;}  // linha esta no meio
+
+    else if(Sd == 0 && Sm == 0 && Se == 1){ erro = 1;}  // linha esta entre a direita e o meio
+    else if(Sd == 1 && Sm == 0 && Se == 0){ erro = -1;}  // linha esta entre a esqeuerda e o meio
+
+    else if(Sd == 0 && Sm == 1 && Se == 1){ erro = 2;}  // linha esta na direita
+    else if(Sd == 1 && Sm == 1 && Se == 0){ erro = -2;}  // linha esta na esquerda
+}
+
 int main (void)
 {
     setup();
@@ -112,63 +116,19 @@ int main (void)
     while (1) {
         gus  = gpio_pin_get(input_dev, INPUT_PIN);
         tavo = gpio_pin_get(input_dev, INPUT_PIN2);
-        reh = gpio_pin_get(input_dev, INPUT_PIN4);;
-        float aux;
-        //giro suave
-        if (reh == 1){
-            pwm_tpm_CnV(TPM0, 1, 1000);
-            //para esquerda
-            if(gus == 1 && tavo == 0){
-                mtr_Vrd_f(frntS); //esquerda para frente
-                mtr_Vrm_t(trasS); //direita para atras
-            }
-            //para direita
-            else if(gus == 0 && tavo == 1){
-                mtr_Vrd_t(trasS); //esquerda para atras
-                mtr_Vrm_f(frntS); //direita para frente
-            }
-
-            //caso contrario, va para frente!
+        reh = gpio_pin_get(input_dev, INPUT_PIN4);
+        calcula_pid();
+        calcula_erro(gus, reh, tavo);
+       
+        if(PID >= 0){
+            motor_dir(tpm - erro * 100);
+            motor_esq(tpm);
+        }
         else{
-            mtr_Vrd_f(frntS);
-            mtr_Vrm_f(frntS);
-        }
+            motor_dir(tpm);
+            motor_esq(tpm - erro * 100);
         }
 
-        //giro grosseiro
-        else if (reh == 0){
-            pwm_tpm_CnV(TPM0, 1, 0);
-            //para esquerda
-            if(gus == 1 && tavo == 0){
-                mtr_Vrd_f(frntG); //esquerda para frente
-                mtr_Vrm_t(trasG);   //direita para atras
-            }
-            //para direita
-            else if(gus == 0 && tavo == 1){
-                mtr_Vrd_t(trasG);   //esquerda para atras
-                mtr_Vrm_f(frntG); //direita para frente
-            }
-
-            //caso contrario, va para frente!
-        else{
-            mtr_Vrd_f(frntS);
-            mtr_Vrm_f(frntS);
-        }
-        }
         k_msleep(20);
-        aux = distancia;
-        
-        //ultrassom
-        while(aux < paro){
-            if(distancia - aux > 10){
-                err = 1;
-            }
-            else{
-                err = 0;
-            }
-            aux = (aux + distancia)/2;
-            quierio(err);
-        }
-    
    }
 }
